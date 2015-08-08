@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Terminator Genisys</title>
+    <title>360 Video Demo</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
@@ -9,27 +9,46 @@
         margin: 0px;
         overflow: hidden;
       }
-      #example {
+      #gyro {
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
       }
+      #hud {
+        z-index: 1;
+        position: absolute;
+      }
     </style>
   </head>
   <body>
-    <div id="example"></div>
+
+  <div id="hud">
+    <div id="main-menu">MAIN MENU</div>
+    <div id="video-controls">
+      <div id="play-button">PLAY</div>
+      <div id="pause-button">PAUSE</div>
+    </div>
+  </div>
+  <video id="video" autoplay loop style="display:none">
+    <!--<source src="/video/pano.webm" type='video/webm'>-->
+    <source src="/video/sintel_trailer-480p.mp4" type='video/mp4'>
+    <source src="/video/sintel_trailer-480p.webm" type='video/webm'>
+    <source src="/video/sintel_trailer-480p.ogv" type='video/ogg'>
+  </video>
+    <div id="gyro"></div>
 
   <script src="http://threejs.org/build/three.min.js"></script>
-  <script src="/js/third-party/threejs/StereoEffect.js"></script>
   <script src="/js/third-party/threejs/OrbitControls.js"></script>
   <script src="/js/third-party/threejs/DeviceOrientationControls.js"></script>
 
   <script>
-    var camera, scene, renderer, dust;
-    var effect, controls;
+    var camera, scene, renderer;
+    var controls;
     var element, container;
+    var hotspots = [];
+    var videoTexture;
 
     var clock = new THREE.Clock();
 
@@ -37,34 +56,101 @@
     animate();
 
     function init() {
+      // set the renderer
       renderer = new THREE.WebGLRenderer( { antialias: true, alpha: true } );
       element = renderer.domElement;
-      container = document.getElementById('example');
+      container = document.getElementById('gyro');
       container.appendChild(element);
 
-      effect = new THREE.StereoEffect(renderer);
-
+      // set the scene and camer
       scene = new THREE.Scene();
-
-      camera = new THREE.PerspectiveCamera(90, 1, 0.001, 700);
+      camera = new THREE.PerspectiveCamera(75, 1, 0.001, 700);
       camera.position.set(0, 0, 0);
       scene.add(camera);
 
+      // set light
+      var light = new THREE.HemisphereLight(0xffffff, 0xffffff, 1);
+      scene.add(light);
+
+      // get video element and assign it to a texture
+      var video = document.getElementById('video');
+      videoTexture = new THREE.Texture(video);
+      videoTexture.minFilter = THREE.LinearFilter;
+      videoTexture.magFilter = THREE.LinearFilter;
+      videoTexture.format = THREE.RGBFormat;
+      videoTexture.generateMipmaps = false;
+
+      // set 360 background panorama
+      var panoGeometry = new THREE.SphereGeometry( 500, 64, 32 );
+      panoGeometry.applyMatrix( new THREE.Matrix4().makeScale( -1, 1, 1 ) );
+
+      var panoMaterial = new THREE.MeshBasicMaterial( {
+        map: videoTexture,
+        //color: 0x00ff00,
+        //wireframe: true
+      } );
+
+      var pano = new THREE.Mesh( panoGeometry, panoMaterial );
+      scene.add( pano );
+
+      // create plane with video texture
+      var planeGeometry = new THREE.PlaneBufferGeometry( 16, 9, 1 );
+      var planeMaterial = new THREE.MeshBasicMaterial( { map: videoTexture, side: THREE.DoubleSide} );
+      var plane = new THREE.Mesh( planeGeometry, planeMaterial );
+      plane.position.set(-10, 0, 0);
+      plane.rotation.set(0, 90 * Math.PI / 180, 0);
+      scene.add( plane );
+
+      // create small cube
+      var cubeGeometry = new THREE.BoxGeometry( 2, 2, 2 );
+      var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+      var cube = new THREE.Mesh( cubeGeometry, cubeMaterial );
+      cube.position.set(-10, 5, 5);
+
+      hotspots.push( cube );
+      scene.add( cube );
+
+      // create sprite hotspot
+      var spriteMap = THREE.ImageUtils.loadTexture( "/textures/sprites/sprite.png" );
+      var spriteMaterial = new THREE.SpriteMaterial( { map: spriteMap } );
+      var sprite = new THREE.Sprite( spriteMaterial );
+      sprite.position.set(-5, -2, 2);
+      hotspots.push( sprite );
+      scene.add( sprite );
+
+      // set mouse touch controls
       controls = new THREE.OrbitControls(camera, element);
-      controls.rotateUp(Math.PI / 4);
       controls.target.set(
-        camera.position.x + 0.1,
+        camera.position.x - 0.1,
         camera.position.y,
         camera.position.z
       );
       controls.noZoom = true;
       controls.noPan = true;
 
+      // set video controls
+      function setVideoControls(videoElement) {
+        var playButton = document.getElementById('play-button');
+        var pauseButton = document.getElementById('pause-button');
+
+        pauseButton.addEventListener('click', pauseMovie, false);
+        playButton.addEventListener('click', playMovie, false);
+
+        function pauseMovie(e) {
+          videoElement.pause();
+        }
+
+        function playMovie(e) {
+          videoElement.play();
+        }
+      }
+      setVideoControls(video);
+
+      // set gyroscope based navigation
       function setOrientationControls(e) {
         if (!e.alpha) {
           return;
         }
-
         controls = new THREE.DeviceOrientationControls(camera, true);
         controls.connect();
         controls.update();
@@ -73,99 +159,46 @@
 
         window.removeEventListener('deviceorientation', setOrientationControls, true);
       }
-      window.addEventListener('deviceorientation', setOrientationControls, true);
+      // window.addEventListener('deviceorientation', setOrientationControls, true);
+      window.addEventListener( 'mousemove', onMouseMove, false );
 
-      var light = new THREE.HemisphereLight(0xffffff, 0xffffff, 1);
-      scene.add(light);
-
-      var panoGeometry = new THREE.SphereGeometry( 500, 16, 8 );
-      panoGeometry.applyMatrix( new THREE.Matrix4().makeScale( -1, 1, 1 ) );
-
-      var panoMaterial = new THREE.MeshBasicMaterial( {
-        map: THREE.ImageUtils.loadTexture( 'https://s.yimg.com/hl/ap/textures/panorama1432022975.jpg' )
-      } );
-
-      var pano = new THREE.Mesh( panoGeometry, panoMaterial );
-      scene.add( pano );
-
-      var cubeMaterials = new THREE.MeshFaceMaterial([
-        new THREE.MeshLambertMaterial({
-          ambient: 0xffffff,
-          map: THREE.ImageUtils.loadTexture( 'https://s.yimg.com/hl/ap/textures/02_Trailer1432022974.png' ),
-          transparent: true }),
-        new THREE.MeshLambertMaterial({
-          ambient: 0xffffff,
-          map: THREE.ImageUtils.loadTexture( 'https://s.yimg.com/hl/ap/textures/05_Ceiling1432022975.png' ),
-          transparent: true }),
-        new THREE.MeshLambertMaterial({
-          ambient: 0xffffff,
-          map: THREE.ImageUtils.loadTexture( 'https://s.yimg.com/hl/ap/textures/05_Ceiling1432022975.png' ),
-          transparent: true }),
-        new THREE.MeshLambertMaterial({
-          ambient: 0xffffff,
-          map: THREE.ImageUtils.loadTexture( 'https://s.yimg.com/hl/ap/textures/06_floor1432022975.png' ),
-          transparent: true }),
-        new THREE.MeshLambertMaterial({
-          ambient: 0xffffff,
-          map: THREE.ImageUtils.loadTexture( 'https://s.yimg.com/hl/ap/textures/01_Landing1432022974.png' ),
-          transparent: true }),
-        new THREE.MeshLambertMaterial( {
-          ambient: 0xffffff,
-          map: THREE.ImageUtils.loadTexture( 'https://s.yimg.com/hl/ap/textures/03_Story1432022974.png' ),
-          transparent: true })
-      ]);
-
-      var cubeGeometry = new THREE.BoxGeometry( 100, 100, 100, 4, 4, 4 );
-      cubeGeometry.applyMatrix( new THREE.Matrix4().makeScale( -1, 1, 1 ) );
-
-      var cube = new THREE.Mesh( cubeGeometry, cubeMaterials );
-      scene.add( cube );
-
-      var particles, materials = [], parameters, i, h, color, sprite, size;
-      dust = new THREE.Geometry();
-
-      sprite1 = THREE.ImageUtils.loadTexture( "https://s.yimg.com/hl/ap/gyro/textures/Smoke101432023867.png" );
-      sprite2 = THREE.ImageUtils.loadTexture( "https://s.yimg.com/hl/ap/gyro/textures/Smoke101432023867.png" );
-      sprite3 = THREE.ImageUtils.loadTexture( "https://s.yimg.com/hl/ap/gyro/textures/cloud101432023867.png" );
-      sprite4 = THREE.ImageUtils.loadTexture( "https://s.yimg.com/hl/ap/gyro/textures/spark1432023717.png" );
-      sprite5 = THREE.ImageUtils.loadTexture( "https://s.yimg.com/hl/ap/gyro/textures/spark1432023717.png" );
-
-      for ( i = 0; i < 1000; i ++ ) {
-        var vertex = new THREE.Vector3();
-        vertex.x = Math.random() * 2000 - 1000;
-        vertex.y = Math.random() * 2000 - 1000;
-        vertex.z = Math.random() * 2000 - 1000;
-        dust.vertices.push( vertex );
-      }
-
-      parameters = [ [ [0.0, 1, 0.05], sprite2, 400 ],
-                  [ [0.0, 1, 0.01], sprite3, 400 ],
-                  [ [0.0, 1, 0.15], sprite1, 400 ],
-                  [ [0.0, 1, 0.2], sprite5, 5 ],
-                  [ [0.0, 1, 0.5], sprite4, 10 ],
-                  ];
-
-      for ( i = 0; i < parameters.length; i ++ ) {
-
-        color  = parameters[i][0];
-        sprite = parameters[i][1];
-        size   = parameters[i][2];
-
-        materials[i] = new THREE.PointCloudMaterial( { map: sprite, size: size, sizeAttenuation: true, blending: THREE.AdditiveBlending, depthTest: false, transparent : true } );
-        materials[i].color.setHSL( color[0], color[1], color[2] );
-
-        particles = new THREE.PointCloud( dust, materials[i] );
-
-        particles.rotation.x = Math.random() * 6;
-        particles.rotation.y = Math.random() * 6;
-        particles.rotation.z = Math.random() * 6;
-
-        scene.add( particles );
-      }
-
+      // respond to browser window resize
       window.addEventListener('resize', resize, false);
       setTimeout(resize, 1);
     }
+
+
+    // initiate variables used in ray casting
+    var vector = new THREE.Vector3();
+    var raycaster = new THREE.Raycaster();
+
+    // mouse interaction with hotspots
+    function onMouseMove( e ) {
+      // prevent default behaviours
+      event.preventDefault();
+
+      // reset color of all hotspots
+      hotspots.forEach(function(hotspot) {
+        hotspot.material.color.setRGB( 0, 1, 0 );
+      });
+
+      // get mouse position
+      vector.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1, 0.5 );
+      vector.unproject( camera );
+
+      // cast ray to find intersecting objects
+      raycaster.set( camera.position, vector.sub( camera.position ).normalize() );
+      var intersects = raycaster.intersectObjects( hotspots );
+
+      // change color of closest interesting object if any
+      if (intersects.length > 0) {
+        var intersection = intersects[ 0 ];
+        var obj = intersection.object;
+        obj.material.color.setRGB( 1, 0, 0 );
+        video.play();
+      }
+    }
+
 
     function resize() {
       var width = container.offsetWidth;
@@ -175,7 +208,6 @@
       camera.updateProjectionMatrix();
 
       renderer.setSize(width, height);
-      effect.setSize(width, height);
     }
 
     function update(dt) {
@@ -187,14 +219,8 @@
     }
 
     function render(dt) {
-      var time = Date.now() * 0.00002;
-      for ( i = 0; i < scene.children.length; i ++ ) {
-        var object = scene.children[ i ];
-        if ( object instanceof THREE.PointCloud ) {
-          object.rotation.y = time * ( i < 4 ? i + 1 : - ( i + 1 ) );
-        }
-      }
       renderer.render(scene, camera);
+      videoTexture.needsUpdate = true;
     }
 
     function animate(t) {

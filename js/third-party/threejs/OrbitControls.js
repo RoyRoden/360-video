@@ -345,7 +345,6 @@ THREE.OrbitControls = function ( object, domElement ) {
       panStart.set( event.clientX, event.clientY );
 
     }
-
     scope.domElement.addEventListener( 'mousemove', onMouseMove, false );
     scope.domElement.addEventListener( 'mouseup', onMouseUp, false );
     scope.dispatchEvent( startEvent );
