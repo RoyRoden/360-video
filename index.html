@@ -25,29 +25,32 @@
   <body>
 
   <div id="hud">
-    <div id="main-menu">MAIN MENU</div>
+    <div id="main-menu">
+      <ul>
+        <li>OVERVIEW</li>
+        <li>GALLERY</li>
+      </ul>
+    </div>
     <div id="video-controls">
       <div id="play-button">PLAY</div>
       <div id="pause-button">PAUSE</div>
     </div>
   </div>
-  <video id="video" autoplay loop style="display:none">
-    <!--<source src="/video/pano.webm" type='video/webm'>-->
-    <source src="/video/sintel_trailer-480p.mp4" type='video/mp4'>
+  <video id="video" autoplay style="display:none">
+    <source src="/video/pano.webm" type='video/webm'>
+    <!-- <source src="/video/sintel_trailer-480p.mp4" type='video/mp4'>
     <source src="/video/sintel_trailer-480p.webm" type='video/webm'>
-    <source src="/video/sintel_trailer-480p.ogv" type='video/ogg'>
+    <source src="/video/sintel_trailer-480p.ogv" type='video/ogg'> -->
   </video>
     <div id="gyro"></div>
 
   <script src="http://threejs.org/build/three.min.js"></script>
   <script src="/js/third-party/threejs/OrbitControls.js"></script>
-  <script src="/js/third-party/threejs/DeviceOrientationControls.js"></script>
 
   <script>
     var camera, scene, renderer;
     var controls;
     var element, container;
-    var hotspots = [];
     var videoTexture;
 
     var clock = new THREE.Clock();
@@ -93,31 +96,6 @@
       var pano = new THREE.Mesh( panoGeometry, panoMaterial );
       scene.add( pano );
 
-      // create plane with video texture
-      var planeGeometry = new THREE.PlaneBufferGeometry( 16, 9, 1 );
-      var planeMaterial = new THREE.MeshBasicMaterial( { map: videoTexture, side: THREE.DoubleSide} );
-      var plane = new THREE.Mesh( planeGeometry, planeMaterial );
-      plane.position.set(-10, 0, 0);
-      plane.rotation.set(0, 90 * Math.PI / 180, 0);
-      scene.add( plane );
-
-      // create small cube
-      var cubeGeometry = new THREE.BoxGeometry( 2, 2, 2 );
-      var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-      var cube = new THREE.Mesh( cubeGeometry, cubeMaterial );
-      cube.position.set(-10, 5, 5);
-
-      hotspots.push( cube );
-      scene.add( cube );
-
-      // create sprite hotspot
-      var spriteMap = THREE.ImageUtils.loadTexture( "/textures/sprites/sprite.png" );
-      var spriteMaterial = new THREE.SpriteMaterial( { map: spriteMap } );
-      var sprite = new THREE.Sprite( spriteMaterial );
-      sprite.position.set(-5, -2, 2);
-      hotspots.push( sprite );
-      scene.add( sprite );
-
       // set mouse touch controls
       controls = new THREE.OrbitControls(camera, element);
       controls.target.set(
@@ -146,59 +124,10 @@
       }
       setVideoControls(video);
 
-      // set gyroscope based navigation
-      function setOrientationControls(e) {
-        if (!e.alpha) {
-          return;
-        }
-        controls = new THREE.DeviceOrientationControls(camera, true);
-        controls.connect();
-        controls.update();
-
-        element.addEventListener('click', fullscreen, false);
-
-        window.removeEventListener('deviceorientation', setOrientationControls, true);
-      }
-      // window.addEventListener('deviceorientation', setOrientationControls, true);
-      window.addEventListener( 'mousemove', onMouseMove, false );
-
       // respond to browser window resize
       window.addEventListener('resize', resize, false);
       setTimeout(resize, 1);
     }
-
-
-    // initiate variables used in ray casting
-    var vector = new THREE.Vector3();
-    var raycaster = new THREE.Raycaster();
-
-    // mouse interaction with hotspots
-    function onMouseMove( e ) {
-      // prevent default behaviours
-      event.preventDefault();
-
-      // reset color of all hotspots
-      hotspots.forEach(function(hotspot) {
-        hotspot.material.color.setRGB( 0, 1, 0 );
-      });
-
-      // get mouse position
-      vector.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1, 0.5 );
-      vector.unproject( camera );
-
-      // cast ray to find intersecting objects
-      raycaster.set( camera.position, vector.sub( camera.position ).normalize() );
-      var intersects = raycaster.intersectObjects( hotspots );
-
-      // change color of closest interesting object if any
-      if (intersects.length > 0) {
-        var intersection = intersects[ 0 ];
-        var obj = intersection.object;
-        obj.material.color.setRGB( 1, 0, 0 );
-        video.play();
-      }
-    }
-
 
     function resize() {
       var width = container.offsetWidth;

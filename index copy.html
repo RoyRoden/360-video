@@ -25,6 +25,8 @@
   <script src="https://s.yimg.com/dh/ap/gyro/js/third-party/threejs/StereoEffect.js"></script>
   <script src="https://s.yimg.com/dh/ap/gyro/js/third-party/threejs/OrbitControls.js"></script>
   <script src="https://s.yimg.com/dh/ap/gyro/js/third-party/threejs/DeviceOrientationControls.js"></script>
+  <script src="/js/third-party/threejs/VREffect.js"></script>
+  <script src="/js/third-party/threejs/VRControls.js"></script>
 
   <script>
     var camera, scene, renderer, dust;
@@ -43,6 +45,8 @@
       container.appendChild(element);
 
       effect = new THREE.StereoEffect(renderer);
+
+      vrcontrols = new THREE.VRControls( camera );
 
       scene = new THREE.Scene();
 
